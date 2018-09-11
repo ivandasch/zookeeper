@@ -844,7 +844,7 @@ public class ClientCnxn {
 
                 if (LOG.isDebugEnabled()) {
                     LOG.debug("Reading reply sessionid:0x"
-                            + Long.toHexString(sessionId) + ", packet:: " + packet);
+                            + Long.toHexString(sessionId) + ", packet:: " + truncate(packet));
                 }
             } finally {
                 finishPacket(packet);
@@ -1119,6 +1119,7 @@ public class ClientCnxn {
                         		((clientCnxnSocket.getIdleSend() > 1000) ? 1000 : 0);
                         //send a ping request either time is due or no packet sent out within MAX_SEND_PING_INTERVAL
                         if (timeToNextPing <= 0 || clientCnxnSocket.getIdleSend() > MAX_SEND_PING_INTERVAL) {
+                            LOG.debug("Equeue ping");
                             sendPing();
                             clientCnxnSocket.updateLastSend();
                         } else {
@@ -1141,6 +1142,8 @@ public class ClientCnxn {
                         }
                         to = Math.min(to, pingRwTimeout - idlePingRwServer);
                     }
+                    LOG.debug("Calculated socket read timeout (to): " + to + ", readTimeout: " + readTimeout +
+                            ", connectTimeout: " + connectTimeout);
 
                     clientCnxnSocket.doTransport(to, pendingQueue, outgoingQueue, ClientCnxn.this);
                 } catch (Throwable e) {
@@ -1406,6 +1409,7 @@ public class ClientCnxn {
         ReplyHeader r = new ReplyHeader();
         Packet packet = queuePacket(h, r, request, response, null, null, null,
                     null, watchRegistration);
+        LOG.debug("Enqueue packet: " + truncate(packet));
         synchronized (packet) {
             while (!packet.finished) {
                 packet.wait();
@@ -1477,5 +1481,14 @@ public class ClientCnxn {
 
     States getState() {
         return state;
+    }
+
+    private String truncate(Packet packet) {
+        if (packet == null)
+            return "";
+
+        String result = packet.toString();
+
+        return result.substring(0, Math.min(result.length(), 1000));
     }
 }

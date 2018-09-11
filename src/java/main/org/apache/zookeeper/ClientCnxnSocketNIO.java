@@ -65,7 +65,9 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
             throw new IOException("Socket is null!");
         }
         if (sockKey.isReadable()) {
+            LOG.debug("Start reading from socket");
             int rc = sock.read(incomingBuffer);
+            LOG.debug("Reading from socket ended");
             if (rc < 0) {
                 throw new EndOfStreamException(
                         "Unable to read additional data from server sessionid 0x"
@@ -104,6 +106,11 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
                         cnxn.sendThread.clientTunneledAuthenticationInProgress());
 
                 if (p != null) {
+                    if(p.requestHeader.getType() != OpCode.ping)
+                        LOG.debug("Sending packet " + truncate(p));
+                    else
+                        LOG.debug("Sending ping packet");
+
                     updateLastSend();
                     // If we already started writing p, p.bb will already exist
                     if (p.bb == null) {
@@ -116,6 +123,8 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
                     }
                     sock.write(p.bb);
                     if (!p.bb.hasRemaining()) {
+                        LOG.debug("Packet has been sent");
+
                         sentCount++;
                         outgoingQueue.removeFirstOccurrence(p);
                         if (p.requestHeader != null
@@ -346,7 +355,10 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
     void doTransport(int waitTimeOut, List<Packet> pendingQueue, LinkedList<Packet> outgoingQueue,
                      ClientCnxn cnxn)
             throws IOException, InterruptedException {
+        LOG.debug("Start waiting selector for " + waitTimeOut);
         selector.select(waitTimeOut);
+        LOG.debug("Selector waiting finished.");
+
         Set<SelectionKey> selected;
         synchronized (this) {
             selected = selector.selectedKeys();
@@ -427,5 +439,12 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
         sock.write(pbb);
     }
 
+    private String truncate(Packet packet) {
+        if (packet == null)
+            return "";
 
+        String result = packet.toString();
+
+        return result.substring(0, Math.min(result.length(), 1000));
+    }
 }
