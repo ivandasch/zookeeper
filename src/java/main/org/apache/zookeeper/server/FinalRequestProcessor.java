@@ -171,6 +171,7 @@ public class FinalRequestProcessor implements RequestProcessor {
                 LOG.debug("Sending PONG to " + cnxn.getRemoteSocketAddress() + " with sessionId: " + Long.toHexString(request.sessionId));
                 cnxn.sendResponse(new ReplyHeader(-2,
                         zks.getZKDatabase().getDataTreeLastProcessedZxid(), 0), null, "response");
+                LOG.debug("PONG to " + cnxn.getRemoteSocketAddress() + " with sessionId: " + Long.toHexString(request.sessionId) + " has been sent");
                 return;
             }
             case OpCode.createSession: {
