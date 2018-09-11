@@ -106,10 +106,12 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
                         cnxn.sendThread.clientTunneledAuthenticationInProgress());
 
                 if (p != null) {
-                    if(p.requestHeader.getType() != OpCode.ping)
-                        LOG.debug("Sending packet " + truncate(p));
-                    else
-                        LOG.debug("Sending ping packet");
+                    if (p.requestHeader != null) {
+                        if (p.requestHeader.getType() != OpCode.ping)
+                            LOG.debug("Sending packet " + truncate(p));
+                        else
+                            LOG.debug("Sending ping packet");
+                    }
 
                     updateLastSend();
                     // If we already started writing p, p.bb will already exist
