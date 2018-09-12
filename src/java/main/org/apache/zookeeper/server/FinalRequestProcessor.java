@@ -391,7 +391,9 @@ public class FinalRequestProcessor implements RequestProcessor {
                     request.createTime, Time.currentElapsedTime());
 
         try {
+            LOG.info("Adding response to outgoing queue for request:: " + request);
             cnxn.sendResponse(hdr, rsp, "response");
+            LOG.info("Finished adding response to outgoing queue for request:: " + request);
             if (closeSession) {
                 cnxn.sendCloseSession();
             }

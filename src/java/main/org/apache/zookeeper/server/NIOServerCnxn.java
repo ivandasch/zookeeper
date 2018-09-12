@@ -235,6 +235,7 @@ public class NIOServerCnxn extends ServerCnxn {
      * Handles read/write IO on connection.
      */
     void doIO(SelectionKey k) throws InterruptedException {
+        long start = System.currentTimeMillis();
         try {
             if (isSocketOpen() == false) {
                 LOG.warn("trying to do i/o on a null socket for session:0x"
@@ -242,6 +243,7 @@ public class NIOServerCnxn extends ServerCnxn {
 
                 return;
             }
+
             if (k.isReadable()) {
                 int rc = sock.read(incomingBuffer);
                 if (rc < 0) {
@@ -269,7 +271,15 @@ public class NIOServerCnxn extends ServerCnxn {
                         return;
                     }
                 }
+
+                LOG.debug("Read data finished in " + (System.currentTimeMillis() - start) + " ms.");
             }
+            else {
+                LOG.debug("Nothing to read.");
+            }
+
+            start = System.currentTimeMillis();
+
             if (k.isWritable()) {
                 // ZooLog.logTraceMessage(LOG,
                 // ZooLog.CLIENT_DATA_PACKET_TRACE_MASK
@@ -361,6 +371,11 @@ public class NIOServerCnxn extends ServerCnxn {
                                 | SelectionKey.OP_WRITE);
                     }
                 }
+
+                LOG.debug("Write data finished in " + (System.currentTimeMillis() - start) + " ms.");
+            }
+            else {
+                LOG.debug("Nothing to write.");
             }
         } catch (CancelledKeyException e) {
             LOG.warn("CancelledKeyException causing close of session 0x"
@@ -1110,7 +1125,10 @@ public class NIOServerCnxn extends ServerCnxn {
      */
     @Override
     synchronized public void sendResponse(ReplyHeader h, Record r, String tag) {
+        long start = System.currentTimeMillis();
         try {
+            LOG.debug("Started serialization of " + h);
+
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             // Make space for length
             BinaryOutputArchive bos = BinaryOutputArchive.getArchive(baos);
@@ -1127,7 +1145,13 @@ public class NIOServerCnxn extends ServerCnxn {
             byte b[] = baos.toByteArray();
             ByteBuffer bb = ByteBuffer.wrap(b);
             bb.putInt(b.length - 4).rewind();
+
+            LOG.debug("End serialization of " + h + " took " + (System.currentTimeMillis() - start) + " ms.");
+
             sendBuffer(bb);
+
+            LOG.debug("Added byte buffer for to NIO queue for " + h);
+
             if (h.getXid() > 0) {
                 synchronized(this){
                     outstandingRequests--;
