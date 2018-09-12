@@ -66,8 +66,9 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
         }
         if (sockKey.isReadable()) {
             LOG.debug("Start reading from socket in doIO");
+            long start = System.currentTimeMillis();
             int rc = sock.read(incomingBuffer);
-            LOG.debug("Reading from socket ended in doIO");
+            LOG.debug("Reading from socket ended in doIO in " + (System.currentTimeMillis() - start) + "ms");
             if (rc < 0) {
                 throw new EndOfStreamException(
                         "Unable to read additional data from server sessionid 0x"
@@ -82,7 +83,7 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
                     LOG.debug("Read length of incoming message: " + incomingBuffer.limit());
                 } else if (!initialized) {
                     LOG.debug("Start client socket initialization");
-                    long start = System.currentTimeMillis();
+                    start = System.currentTimeMillis();
                     readConnectResult();
                     enableRead();
                     if (findSendablePacket(outgoingQueue,
@@ -98,7 +99,7 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
                     LOG.debug("End client socket initialization in " + (System.currentTimeMillis() - start) + "ms");
                 } else {
                     LOG.debug("Start reading response");
-                    long start = System.currentTimeMillis();
+                    start = System.currentTimeMillis();
                     sendThread.readResponse(incomingBuffer);
                     LOG.debug("End reading response in " + (System.currentTimeMillis() - start) + "ms");
                     lenBuffer.clear();
@@ -381,8 +382,9 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
                      ClientCnxn cnxn)
             throws IOException, InterruptedException {
         LOG.debug("Start waiting selector for " + waitTimeOut);
+        long start = System.currentTimeMillis();
         selector.select(waitTimeOut);
-        LOG.debug("Selector waiting finished.");
+        LOG.debug("Selector waiting finished in " + (System.currentTimeMillis() - start) + "ms");
 
         Set<SelectionKey> selected;
         synchronized (this) {
@@ -407,13 +409,14 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
         }
         if (sendThread.getZkState().isConnected()) {
             LOG.debug("Aquiring lock on outgoingQueue in doTransport");
+            start = System.currentTimeMillis();
             synchronized(outgoingQueue) {
-                LOG.debug("Lock aquired on outgoingQueue");
+                LOG.debug("Lock aquired on outgoingQueue in " + (System.currentTimeMillis() - start) + "ms");
                 if (findSendablePacket(outgoingQueue,
                         cnxn.sendThread.clientTunneledAuthenticationInProgress()) != null) {
                     enableWrite();
                 }
-                LOG.debug("Post processing of outgoingQueue in doTransport finished");
+                LOG.debug("Post processing of outgoingQueue in doTransport finished in " + (System.currentTimeMillis() - start) + "ms");
             }
         }
         selected.clear();
