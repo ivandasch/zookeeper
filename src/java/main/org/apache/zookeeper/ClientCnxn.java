@@ -738,6 +738,8 @@ public class ClientCnxn {
             BinaryInputArchive bbia = BinaryInputArchive.getArchive(bbis);
             ReplyHeader replyHdr = new ReplyHeader();
 
+            long start;
+
             replyHdr.deserialize(bbia, "header");
             if (replyHdr.getXid() == -2) {
                 // -2 is the xid for pings
@@ -792,7 +794,9 @@ public class ClientCnxn {
                             + Long.toHexString(sessionId));
                 }
 
+                start = System.currentTimeMillis();
                 eventThread.queueEvent( we );
+                LOG.debug("Queueed read event in " + (System.currentTimeMillis() - start) + "ms");
                 return;
             }
 
@@ -800,14 +804,17 @@ public class ClientCnxn {
             // send a response packet immediately, rather than queuing a
             // response as with other packets.
             if (clientTunneledAuthenticationInProgress()) {
+                start = System.currentTimeMillis();
                 GetSASLRequest request = new GetSASLRequest();
                 request.deserialize(bbia,"token");
                 zooKeeperSaslClient.respondToServer(request.getToken(),
                   ClientCnxn.this);
+                LOG.debug("Respond read SASL request in " + (System.currentTimeMillis() - start) + "ms");
                 return;
             }
 
             Packet packet;
+            start = System.currentTimeMillis();
             synchronized (pendingQueue) {
                 if (pendingQueue.size() == 0) {
                     throw new IOException("Nothing in the queue, but got "
@@ -815,6 +822,7 @@ public class ClientCnxn {
                 }
                 packet = pendingQueue.remove();
             }
+            LOG.debug("Find packet from pendingQueue in " + (System.currentTimeMillis() - start) + "ms" );
             /*
              * Since requests are processed in order, we better get a response
              * to the first request!
@@ -839,7 +847,9 @@ public class ClientCnxn {
                     lastZxid = replyHdr.getZxid();
                 }
                 if (packet.response != null && replyHdr.getErr() == 0) {
+                    start = System.currentTimeMillis();
                     packet.response.deserialize(bbia, "response");
+                    LOG.debug("Deserialize response in " + (System.currentTimeMillis() - start) + "ms" );
                 }
 
                 if (LOG.isDebugEnabled()) {
@@ -847,7 +857,9 @@ public class ClientCnxn {
                             + Long.toHexString(sessionId) + ", packet:: " + truncate(packet));
                 }
             } finally {
+                start = System.currentTimeMillis();
                 finishPacket(packet);
+                LOG.debug("finishPacket took " + (System.currentTimeMillis() - start) + "ms");
             }
         }
 
@@ -1043,6 +1055,7 @@ public class ClientCnxn {
             InetSocketAddress serverAddress = null;
             while (state.isAlive()) {
                 try {
+                    LOG.debug("Enter in main loop");
                     if (!clientCnxnSocket.isConnected()) {
                         if(!isFirstConnect){
                             try {
@@ -1092,9 +1105,11 @@ public class ClientCnxn {
                             }
 
                             if (sendAuthEvent == true) {
+                                LOG.debug("Adding auth event to queue");
                                 eventThread.queueEvent(new WatchedEvent(
                                       Watcher.Event.EventType.None,
                                       authState,null));
+                                LOG.debug("Added auth event to queue");
                             }
                         }
                         to = readTimeout - clientCnxnSocket.getIdleRecv();
@@ -1130,7 +1145,7 @@ public class ClientCnxn {
                     }
 
                     // If we are in read-only mode, seek for read/write server
-                    if (state == States.CONNECTEDREADONLY) {
+                    if (state == States.CONNECTEDREADONLY) { ;
                         long now = Time.currentElapsedTime();
                         int idlePingRwServer = (int) (now - lastPingRwServer);
                         if (idlePingRwServer >= pingRwTimeout) {
@@ -1138,7 +1153,9 @@ public class ClientCnxn {
                             idlePingRwServer = 0;
                             pingRwTimeout =
                                 Math.min(2*pingRwTimeout, maxPingRwTimeout);
+                            LOG.debug("Start pinging RW server");
                             pingRwServer();
+                            LOG.debug("Finish pinging RW server");
                         }
                         to = Math.min(to, pingRwTimeout - idlePingRwServer);
                     }

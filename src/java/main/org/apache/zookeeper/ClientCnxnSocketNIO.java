@@ -65,9 +65,9 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
             throw new IOException("Socket is null!");
         }
         if (sockKey.isReadable()) {
-            LOG.debug("Start reading from socket");
+            LOG.debug("Start reading from socket in doIO");
             int rc = sock.read(incomingBuffer);
-            LOG.debug("Reading from socket ended");
+            LOG.debug("Reading from socket ended in doIO");
             if (rc < 0) {
                 throw new EndOfStreamException(
                         "Unable to read additional data from server sessionid 0x"
@@ -79,7 +79,10 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
                 if (incomingBuffer == lenBuffer) {
                     recvCount++;
                     readLength();
+                    LOG.debug("Read length of incoming message: " + incomingBuffer.limit());
                 } else if (!initialized) {
+                    LOG.debug("Start client socket initialization");
+                    long start = System.currentTimeMillis();
                     readConnectResult();
                     enableRead();
                     if (findSendablePacket(outgoingQueue,
@@ -92,16 +95,26 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
                     incomingBuffer = lenBuffer;
                     updateLastHeard();
                     initialized = true;
+                    LOG.debug("End client socket initialization in " + (System.currentTimeMillis() - start) + "ms");
                 } else {
+                    LOG.debug("Start reading response");
+                    long start = System.currentTimeMillis();
                     sendThread.readResponse(incomingBuffer);
+                    LOG.debug("End reading response in " + (System.currentTimeMillis() - start) + "ms");
                     lenBuffer.clear();
                     incomingBuffer = lenBuffer;
                     updateLastHeard();
                 }
             }
+            else
+                LOG.debug("incomingBuffer with length " + incomingBuffer.limit() + " has remaining:" + incomingBuffer.remaining());
         }
         if (sockKey.isWritable()) {
+            LOG.debug("Aquiring lock on outgoingQueue in doIO");
+            long start = System.currentTimeMillis();
             synchronized(outgoingQueue) {
+                LOG.debug("Aquired lock on outgoingQueue in doIO in " + (System.currentTimeMillis() - start) + "ms");
+
                 Packet p = findSendablePacket(outgoingQueue,
                         cnxn.sendThread.clientTunneledAuthenticationInProgress());
 
@@ -121,9 +134,14 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
                                 (p.requestHeader.getType() != OpCode.auth)) {
                             p.requestHeader.setXid(cnxn.getXid());
                         }
+                        start = System.currentTimeMillis();
                         p.createBB();
+                        LOG.debug("Serialization of packet took " + (System.currentTimeMillis() - start) + "ms");
                     }
+                    start = System.currentTimeMillis();
+                    LOG.debug("Start writing to socket");
                     sock.write(p.bb);
+                    LOG.debug("End writing to socket in " + (System.currentTimeMillis() - start) + "ms");
                     if (!p.bb.hasRemaining()) {
                         LOG.debug("Packet has been sent");
 
@@ -132,11 +150,16 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
                         if (p.requestHeader != null
                                 && p.requestHeader.getType() != OpCode.ping
                                 && p.requestHeader.getType() != OpCode.auth) {
+                            LOG.debug("Removing send packet from pedingQueue");
+                            start = System.currentTimeMillis();
                             synchronized (pendingQueue) {
                                 pendingQueue.add(p);
                             }
+                            LOG.debug("Removed send packet from pedingQueue in " + (System.currentTimeMillis() - start) + "ms");
                         }
                     }
+                    else
+                        LOG.debug("Failed to send packet of length " + p.bb.limit() + " " + p.bb.remaining() + " remained");
                 }
                 if (outgoingQueue.isEmpty()) {
                     // No more packets to send: turn off write interest flag.
@@ -372,20 +395,25 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
         for (SelectionKey k : selected) {
             SocketChannel sc = ((SocketChannel) k.channel());
             if ((k.readyOps() & SelectionKey.OP_CONNECT) != 0) {
+                LOG.debug("Selection OP_CONNECT");
                 if (sc.finishConnect()) {
                     updateLastSendAndHeard();
                     sendThread.primeConnection();
                 }
             } else if ((k.readyOps() & (SelectionKey.OP_READ | SelectionKey.OP_WRITE)) != 0) {
+                LOG.debug("Selection OP_READ/OP_WRITE");
                 doIO(pendingQueue, outgoingQueue, cnxn);
             }
         }
         if (sendThread.getZkState().isConnected()) {
+            LOG.debug("Aquiring lock on outgoingQueue in doTransport");
             synchronized(outgoingQueue) {
+                LOG.debug("Lock aquired on outgoingQueue");
                 if (findSendablePacket(outgoingQueue,
                         cnxn.sendThread.clientTunneledAuthenticationInProgress()) != null) {
                     enableWrite();
                 }
+                LOG.debug("Post processing of outgoingQueue in doTransport finished");
             }
         }
         selected.clear();
