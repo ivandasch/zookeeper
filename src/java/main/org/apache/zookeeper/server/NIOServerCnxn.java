@@ -32,6 +32,7 @@ import java.nio.channels.SocketChannel;
 import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.jute.BinaryInputArchive;
 import org.apache.jute.BinaryOutputArchive;
@@ -236,6 +237,7 @@ public class NIOServerCnxn extends ServerCnxn {
      */
     void doIO(SelectionKey k) throws InterruptedException {
         long start = System.currentTimeMillis();
+        long nanoStart = System.nanoTime();
         try {
             if (isSocketOpen() == false) {
                 LOG.warn("trying to do i/o on a null socket for session:0x"
@@ -272,13 +274,15 @@ public class NIOServerCnxn extends ServerCnxn {
                     }
                 }
 
-                LOG.debug("Read data finished in " + (System.currentTimeMillis() - start) + " ms.");
+                LOG.debug("Read data finished in " + (System.currentTimeMillis() - start) + "ms nano: "
+                        + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - nanoStart) + "ms");
             }
             else {
                 LOG.debug("Nothing to read.");
             }
 
             start = System.currentTimeMillis();
+            nanoStart = System.nanoTime();
 
             if (k.isWritable()) {
                 // ZooLog.logTraceMessage(LOG,
@@ -372,7 +376,8 @@ public class NIOServerCnxn extends ServerCnxn {
                     }
                 }
 
-                LOG.debug("Write data finished in " + (System.currentTimeMillis() - start) + " ms.");
+                LOG.debug("Write data finished in " + (System.currentTimeMillis() - start) + "ms nano: "
+                        + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - nanoStart) + "ms");
             }
             else {
                 LOG.debug("Nothing to write.");
@@ -1126,6 +1131,7 @@ public class NIOServerCnxn extends ServerCnxn {
     @Override
     synchronized public void sendResponse(ReplyHeader h, Record r, String tag) {
         long start = System.currentTimeMillis();
+        long nanoStart = System.nanoTime();
         try {
             LOG.debug("Started serialization of " + h);
 
@@ -1146,7 +1152,8 @@ public class NIOServerCnxn extends ServerCnxn {
             ByteBuffer bb = ByteBuffer.wrap(b);
             bb.putInt(b.length - 4).rewind();
 
-            LOG.debug("End serialization of " + h + " took " + (System.currentTimeMillis() - start) + " ms.");
+            LOG.debug("End serialization of " + h + " took " + (System.currentTimeMillis() - start) + "ms nano: "
+                    + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - nanoStart) + "ms");
 
             sendBuffer(bb);
 

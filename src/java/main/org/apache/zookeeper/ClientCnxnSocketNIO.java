@@ -29,6 +29,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.zookeeper.ClientCnxn.EndOfStreamException;
 import org.apache.zookeeper.ClientCnxn.Packet;
@@ -67,8 +68,10 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
         if (sockKey.isReadable()) {
             LOG.debug("Start reading from socket in doIO");
             long start = System.currentTimeMillis();
+            long nanoStart = System.nanoTime();
             int rc = sock.read(incomingBuffer);
-            LOG.debug("Reading from socket ended in doIO in " + (System.currentTimeMillis() - start) + "ms");
+            LOG.debug("Reading from socket ended in doIO in " + (System.currentTimeMillis() - start) + "ms nano: "
+                    + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - nanoStart) + "ms");
             if (rc < 0) {
                 throw new EndOfStreamException(
                         "Unable to read additional data from server sessionid 0x"
@@ -84,6 +87,7 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
                 } else if (!initialized) {
                     LOG.debug("Start client socket initialization");
                     start = System.currentTimeMillis();
+                    nanoStart = System.nanoTime();
                     readConnectResult();
                     enableRead();
                     if (findSendablePacket(outgoingQueue,
@@ -96,12 +100,15 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
                     incomingBuffer = lenBuffer;
                     updateLastHeard();
                     initialized = true;
-                    LOG.debug("End client socket initialization in " + (System.currentTimeMillis() - start) + "ms");
+                    LOG.debug("End client socket initialization in " + (System.currentTimeMillis() - start) + "ms nano: "
+                            + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - nanoStart) + "ms");
                 } else {
                     LOG.debug("Start reading response");
                     start = System.currentTimeMillis();
+                    nanoStart = System.nanoTime();
                     sendThread.readResponse(incomingBuffer);
-                    LOG.debug("End reading response in " + (System.currentTimeMillis() - start) + "ms");
+                    LOG.debug("End reading response in " + (System.currentTimeMillis() - start) + "ms nano: "
+                            + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - nanoStart) + "ms");
                     lenBuffer.clear();
                     incomingBuffer = lenBuffer;
                     updateLastHeard();
@@ -113,8 +120,10 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
         if (sockKey.isWritable()) {
             LOG.debug("Aquiring lock on outgoingQueue in doIO");
             long start = System.currentTimeMillis();
+            long nanoStart = System.nanoTime();
             synchronized(outgoingQueue) {
-                LOG.debug("Aquired lock on outgoingQueue in doIO in " + (System.currentTimeMillis() - start) + "ms");
+                LOG.debug("Aquired lock on outgoingQueue in doIO in " + (System.currentTimeMillis() - start) + "ms nano: "
+                        + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - nanoStart) + "ms");
 
                 Packet p = findSendablePacket(outgoingQueue,
                         cnxn.sendThread.clientTunneledAuthenticationInProgress());
@@ -136,13 +145,17 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
                             p.requestHeader.setXid(cnxn.getXid());
                         }
                         start = System.currentTimeMillis();
+                        nanoStart = System.nanoTime();
                         p.createBB();
-                        LOG.debug("Serialization of packet took " + (System.currentTimeMillis() - start) + "ms");
+                        LOG.debug("Serialization of packet took " + (System.currentTimeMillis() - start) + "ms nano: "
+                                + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - nanoStart) + "ms");
                     }
                     start = System.currentTimeMillis();
+                    nanoStart = System.nanoTime();
                     LOG.debug("Start writing to socket");
                     sock.write(p.bb);
-                    LOG.debug("End writing to socket in " + (System.currentTimeMillis() - start) + "ms");
+                    LOG.debug("End writing to socket in " + (System.currentTimeMillis() - start) + "ms nano: "
+                            + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - nanoStart) + "ms");
                     if (!p.bb.hasRemaining()) {
                         LOG.debug("Packet has been sent");
 
@@ -153,10 +166,12 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
                                 && p.requestHeader.getType() != OpCode.auth) {
                             LOG.debug("Removing send packet from pedingQueue");
                             start = System.currentTimeMillis();
+                            nanoStart = System.nanoTime();
                             synchronized (pendingQueue) {
                                 pendingQueue.add(p);
                             }
-                            LOG.debug("Removed send packet from pedingQueue in " + (System.currentTimeMillis() - start) + "ms");
+                            LOG.debug("Removed send packet from pedingQueue in " + (System.currentTimeMillis() - start) + "ms nano: "
+                                    + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - nanoStart) + "ms");
                         }
                     }
                     else
@@ -383,8 +398,10 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
             throws IOException, InterruptedException {
         LOG.debug("Start waiting selector for " + waitTimeOut);
         long start = System.currentTimeMillis();
+        long nanoStart = System.nanoTime();
         selector.select(waitTimeOut);
-        LOG.debug("Selector waiting finished in " + (System.currentTimeMillis() - start) + "ms");
+        LOG.debug("Selector waiting finished in " + (System.currentTimeMillis() - start) + "ms nano: "
+                + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - nanoStart) + "ms");
 
         Set<SelectionKey> selected;
         synchronized (this) {
@@ -410,13 +427,16 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
         if (sendThread.getZkState().isConnected()) {
             LOG.debug("Aquiring lock on outgoingQueue in doTransport");
             start = System.currentTimeMillis();
+            nanoStart = System.nanoTime();
             synchronized(outgoingQueue) {
-                LOG.debug("Lock aquired on outgoingQueue in " + (System.currentTimeMillis() - start) + "ms");
+                LOG.debug("Lock aquired on outgoingQueue in " + (System.currentTimeMillis() - start) + "ms nano: "
+                        + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - nanoStart) + "ms");
                 if (findSendablePacket(outgoingQueue,
                         cnxn.sendThread.clientTunneledAuthenticationInProgress()) != null) {
                     enableWrite();
                 }
-                LOG.debug("Post processing of outgoingQueue in doTransport finished in " + (System.currentTimeMillis() - start) + "ms");
+                LOG.debug("Post processing of outgoingQueue in doTransport finished in "  + (System.currentTimeMillis() - start) + "ms nano: "
+                        + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - nanoStart) + "ms");
             }
         }
         selected.clear();

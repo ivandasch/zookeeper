@@ -38,6 +38,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 import javax.security.auth.login.LoginException;
 import javax.security.sasl.SaslException;
@@ -739,6 +740,7 @@ public class ClientCnxn {
             ReplyHeader replyHdr = new ReplyHeader();
 
             long start;
+            long nanoStart;
 
             replyHdr.deserialize(bbia, "header");
             if (replyHdr.getXid() == -2) {
@@ -795,8 +797,10 @@ public class ClientCnxn {
                 }
 
                 start = System.currentTimeMillis();
+                nanoStart = System.nanoTime();
                 eventThread.queueEvent( we );
-                LOG.debug("Queueed read event in " + (System.currentTimeMillis() - start) + "ms");
+                LOG.debug("Queueed read event in " + (System.currentTimeMillis() - start) + "ms nano: "
+                        + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - nanoStart) + "ms");
                 return;
             }
 
@@ -805,16 +809,19 @@ public class ClientCnxn {
             // response as with other packets.
             if (clientTunneledAuthenticationInProgress()) {
                 start = System.currentTimeMillis();
+                nanoStart = System.nanoTime();
                 GetSASLRequest request = new GetSASLRequest();
                 request.deserialize(bbia,"token");
                 zooKeeperSaslClient.respondToServer(request.getToken(),
                   ClientCnxn.this);
-                LOG.debug("Respond read SASL request in " + (System.currentTimeMillis() - start) + "ms");
+                LOG.debug("Respond read SASL request in " + (System.currentTimeMillis() - start) + "ms nano: "
+                        + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - nanoStart) + "ms");
                 return;
             }
 
             Packet packet;
             start = System.currentTimeMillis();
+            nanoStart = System.nanoTime();
             synchronized (pendingQueue) {
                 if (pendingQueue.size() == 0) {
                     throw new IOException("Nothing in the queue, but got "
@@ -822,7 +829,8 @@ public class ClientCnxn {
                 }
                 packet = pendingQueue.remove();
             }
-            LOG.debug("Find packet from pendingQueue in " + (System.currentTimeMillis() - start) + "ms" );
+            LOG.debug("Find packet from pendingQueue in " + (System.currentTimeMillis() - start) + "ms  nano: "
+                    + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - nanoStart) + "ms");
             /*
              * Since requests are processed in order, we better get a response
              * to the first request!
@@ -848,8 +856,10 @@ public class ClientCnxn {
                 }
                 if (packet.response != null && replyHdr.getErr() == 0) {
                     start = System.currentTimeMillis();
+                    nanoStart = System.nanoTime();
                     packet.response.deserialize(bbia, "response");
-                    LOG.debug("Deserialize response in " + (System.currentTimeMillis() - start) + "ms" );
+                    LOG.debug("Deserialize response in " + (System.currentTimeMillis() - start) + "ms " + " nano: "
+                            + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - nanoStart) + "ms");
                 }
 
                 if (LOG.isDebugEnabled()) {
@@ -858,8 +868,10 @@ public class ClientCnxn {
                 }
             } finally {
                 start = System.currentTimeMillis();
+                nanoStart = System.nanoTime();
                 finishPacket(packet);
-                LOG.debug("finishPacket took " + (System.currentTimeMillis() - start) + "ms");
+                LOG.debug("finishPacket took " + (System.currentTimeMillis() - start) + "ms " + " nano: "
+                        + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - nanoStart) + "ms");
             }
         }
 

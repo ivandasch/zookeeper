@@ -21,6 +21,7 @@ package org.apache.zookeeper.server;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.jute.Record;
 import org.apache.zookeeper.common.Time;
@@ -392,8 +393,11 @@ public class FinalRequestProcessor implements RequestProcessor {
 
         try {
             LOG.info("Adding response to outgoing queue for request:: " + request);
+            long start = System.currentTimeMillis();
+            long nanoStart = System.nanoTime();
             cnxn.sendResponse(hdr, rsp, "response");
-            LOG.info("Finished adding response to outgoing queue for request:: " + request);
+            LOG.info("Finished adding response to outgoing queue for request:: " + request + " took " + (System.currentTimeMillis() - start) + "ms nano: "
+                    + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - nanoStart) + "ms");
             if (closeSession) {
                 cnxn.sendCloseSession();
             }
